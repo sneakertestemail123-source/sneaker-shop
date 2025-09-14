@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Minimal Sneaker Shop</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <meta name="robots" content="index,follow" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1 id="site-title">Sneaker Shop</h1>
+      <nav class="top-nav">
+        <a href="#products">Shop</a>
+        <a href="/admin/" class="admin-link">CMS</a>
+      </nav>
+    </div>
+  </header>
+
+  <section id="hero" class="hero">
+    <div class="hero-inner container">
+      <h2 id="hero-title">Modern sneakers. Minimal shop.</h2>
+      <p id="hero-subtitle">Curated drops, clean lines.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <section id="products" class="product-grid" aria-live="polite">
+      <!-- Product cards injected here -->
+      <div id="loading" class="loading">Loading products…</div>
+    </section>
+  </main>
+
+  <!-- Product modal -->
+  <div id="product-modal" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <button id="modal-close" class="modal-close" aria-label="Close">×</button>
+      <img id="modal-image" alt="" class="modal-image"/>
+      <div class="modal-info">
+        <h3 id="modal-title"></h3>
+        <p id="modal-desc"></p>
+        <div class="modal-meta">
+          <div id="modal-price" class="price"></div>
+          <a id="modal-buy" class="btn" target="_blank" rel="noopener noreferrer">Buy Now</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer container">
+    <small>© <span id="site-year"></span> Minimal Sneaker Shop</small>
+  </footer>
+
+  <script>
+/*
+  -------- IMPORTANT --------
+  1) If you want the site to automatically list products added through the CMS,
+     fill in GITHUB_OWNER and GITHUB_REPO below (public repo recommended).
+     The site will use the GitHub REST API to list files under /data/products and
+     fetch each product JSON. If you prefer not to use the GitHub API, leave them
+     empty and maintain a local /data/products/index.json (see instructions).
+     See GitHub API docs (contents endpoint supports CORS). :contentReference[oaicite:1]{index=1}
+  2) If you update the branch name change GITHUB_BRANCH accordingly.
+*/
+const GITHUB_OWNER = "";   // e.g. "your-github-username"
+const GITHUB_REPO  = "";   // e.g. "sneaker-shop"
+const GITHUB_BRANCH = "main";
+
+const productsContainer = document.getElementById('products');
+const loadingEl = document.getElementById('loading');
+const siteTitleEl = document.getElementById('site-title');
+const heroTitleEl = document.getElementById('hero-title');
+const heroSubtitleEl = document.getElementById('hero-subtitle');
+const heroEl = document.getElementById('hero');
+const yearEl = document.getElementById('site-year');
+yearEl.textContent = new Date().getFullYear();
+
+/* Modal elements */
+const modal = document.getElementById('product-modal');
+const modalClose = document.getElementById('modal-close');
+const modalImage = document.getElementById('modal-image');
+const modalTitle = document.getElementById('modal-title');
+const modalDesc = document.getElementById('modal-desc');
+const modalPrice = document.getElementById('modal-price');
+const modalBuy = document.getElementById('modal-buy');
+
+modalClose.addEventListener('click', closeModal);
+modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); });
+
+function openModal(product){
+  modalImage.src = product.image || (product.gallery && product.gallery[0]) || '';
+  modalImage.alt = product.title || '';
+  modalTitle.textContent = product.title || '';
+  modalDesc.textContent = product.description || '';
+  modalPrice.textContent = product.currency ? (product.currency + ' ' + product.price) : ('$' + product.price);
+  modalBuy.href = product.buy_url || '#';
+  modal.setAttribute('aria-hidden','false');
+  modal.classList.add('open');
+}
+function closeModal(){
+  modal.setAttribute('aria-hidden','true');
+  modal.classList.remove('open');
+}
+
+/* Render a single product card */
+function renderProductCard(product){
+  const card = document.createElement('article');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-media">
+      <img loading="lazy" src="${product.image || (product.gallery && product.gallery[0]) || ''}" alt="${product.title || ''}">
+    </div>
+    <div class="card-body">
+      <h3 class="card-title">${product.title || 'Untitled'}</h3>
+      <div class="card-meta">
+        <div class="price">${product.currency ? (product.currency + ' ' + product.price) : ('$' + product.price)}</div>
+        <button class="btn small view-btn">View</button>
+      </div>
+    </div>
+  `;
+  card.querySelector('.view-btn').addEventListener('click', ()=> openModal(product));
+  return card;
+}
+
+/* Try GitHub API listing first (works for public repos and with CORS) */
+async function fetchProductsFromGitHub(){
+  if(!GITHUB_OWNER || !GITHUB_REPO) return null;
+  const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/data/products?ref=${GITHUB_BRANCH}`;
+  try{
+    const res = await fetch(apiUrl);
+    if(!res.ok) throw new Error('GitHub API list failed: ' + res.status);
+    const items = await res.json(); // array of {name, path, download_url, ...}
+    // fetch each product JSON
+    const productPromises = items
+      .filter(it => it.type === 'file' && it.name.endsWith('.json'))
+      .map(it => fetch(it.download_url).then(r => r.json()).catch(()=>null));
+    const products = (await Promise.all(productPromises)).filter(Boolean);
+    return products.sort((a,b)=> new Date(b.date || 0) - new Date(a.date || 0));
+  }catch(err){
+    console.warn('GitHub API product list failed', err);
+    return null;
+  }
+}
+
+/* Fallback: load a local static manifest at /data/products/index.json */
+async function fetchProductsFromManifest(){
+  try{
+    const res = await fetch('/data/products/index.json');
+    if(!res.ok) throw new Error('No manifest');
+    const list = await res.json(); // expected: array of product objects OR filenames
+    // if the manifest is array of filenames -> fetch them
+    if(Array.isArray(list) && list.length && typeof list[0] === 'string'){
+      const proms = list.map(f=>fetch('/data/products/' + f).then(r=>r.json()));
+      return await Promise.all(proms);
+    }
+    // otherwise it's probably an array of product objects
+    return list;
+  }catch(err){
+    console.warn('Manifest load failed', err);
+    return null;
+  }
+}
+
+/* Load site-level settings (hero image, texts) from /data/site.json */
+async function loadSiteSettings(){
+  try{
+    const res = await fetch('/data/site.json');
+    if(!res.ok) throw new Error('no site.json');
+    const s = await res.json();
+    if(s.title) siteTitleEl.textContent = s.title;
+    if(s.hero_title) heroTitleEl.textContent = s.hero_title;
+    if(s.hero_subtitle) heroSubtitleEl.textContent = s.hero_subtitle;
+    if(s.hero_image){
+      heroEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)), url('${s.hero_image}')`;
+    }
+  }catch(e){
+    // silent - site will show defaults
+    console.info('No site.json found — using defaults');
+  }
+}
+
+/* Master loader */
+async function loadAll(){
+  await loadSiteSettings();
+
+  // Try GitHub API first
+  const fromGit = await fetchProductsFromGitHub();
+  let products = fromGit;
+  if(!products){
+    // try static manifest
+    products = await fetchProductsFromManifest();
+  }
+  // final fallback: embedded demo if nothing else present
+  if(!products || products.length === 0){
+    products = [{
+      "title":"Air Jordan 1 Retro High",
+      "slug":"air-jordan-1",
+      "price":170,
+      "currency":"USD",
+      "description":"Sample product — add real products via the CMS under /admin.",
+      "image":"/images/sample-aj1.jpg",
+      "buy_url":"https://example.com"
+    }];
+  }
+
+  // Render
+  loadingEl.style.display = 'none';
+  products.forEach(p=>{
+    const card = renderProductCard(p);
+    productsContainer.appendChild(card);
+  });
+}
+
+loadAll();
+  </script>
+</body>
+</html>
