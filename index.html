@@ -53,18 +53,8 @@
   </footer>
 
   <script>
-/*
-  -------- IMPORTANT --------
-  1) If you want the site to automatically list products added through the CMS,
-     fill in GITHUB_OWNER and GITHUB_REPO below (public repo recommended).
-     The site will use the GitHub REST API to list files under /data/products and
-     fetch each product JSON. If you prefer not to use the GitHub API, leave them
-     empty and maintain a local /data/products/index.json (see instructions).
-     See GitHub API docs (contents endpoint supports CORS). :contentReference[oaicite:1]{index=1}
-  2) If you update the branch name change GITHUB_BRANCH accordingly.
-*/
-const GITHUB_OWNER = "sneakertestemail123-source";   // e.g. "your-github-username"
-const GITHUB_REPO  = "sneaker-shop";   // e.g. "sneaker-shop"
+const GITHUB_OWNER = "sneakertestemail123-source";
+const GITHUB_REPO  = "sneaker-shop";
 const GITHUB_BRANCH = "main";
 
 const productsContainer = document.getElementById('products');
@@ -104,7 +94,6 @@ function closeModal(){
   modal.classList.remove('open');
 }
 
-/* Render a single product card */
 function renderProductCard(product){
   const card = document.createElement('article');
   card.className = 'card';
@@ -124,15 +113,13 @@ function renderProductCard(product){
   return card;
 }
 
-/* Try GitHub API listing first (works for public repos and with CORS) */
 async function fetchProductsFromGitHub(){
   if(!GITHUB_OWNER || !GITHUB_REPO) return null;
   const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/data/products?ref=${GITHUB_BRANCH}`;
   try{
     const res = await fetch(apiUrl);
     if(!res.ok) throw new Error('GitHub API list failed: ' + res.status);
-    const items = await res.json(); // array of {name, path, download_url, ...}
-    // fetch each product JSON
+    const items = await res.json();
     const productPromises = items
       .filter(it => it.type === 'file' && it.name.endsWith('.json'))
       .map(it => fetch(it.download_url).then(r => r.json()).catch(()=>null));
@@ -144,18 +131,15 @@ async function fetchProductsFromGitHub(){
   }
 }
 
-/* Fallback: load a local static manifest at /data/products/index.json */
 async function fetchProductsFromManifest(){
   try{
     const res = await fetch('/data/products/index.json');
     if(!res.ok) throw new Error('No manifest');
-    const list = await res.json(); // expected: array of product objects OR filenames
-    // if the manifest is array of filenames -> fetch them
+    const list = await res.json();
     if(Array.isArray(list) && list.length && typeof list[0] === 'string'){
       const proms = list.map(f=>fetch('/data/products/' + f).then(r=>r.json()));
       return await Promise.all(proms);
     }
-    // otherwise it's probably an array of product objects
     return list;
   }catch(err){
     console.warn('Manifest load failed', err);
@@ -163,7 +147,6 @@ async function fetchProductsFromManifest(){
   }
 }
 
-/* Load site-level settings (hero image, texts) from /data/site.json */
 async function loadSiteSettings(){
   try{
     const res = await fetch('/data/site.json');
@@ -176,36 +159,23 @@ async function loadSiteSettings(){
       heroEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)), url('${s.hero_image}')`;
     }
   }catch(e){
-    // silent - site will show defaults
     console.info('No site.json found — using defaults');
   }
 }
 
-/* Master loader */
 async function loadAll(){
   await loadSiteSettings();
-
-  // Try GitHub API first
   const fromGit = await fetchProductsFromGitHub();
   let products = fromGit;
   if(!products){
-    // try static manifest
     products = await fetchProductsFromManifest();
   }
-  // final fallback: embedded demo if nothing else present
+
   if(!products || products.length === 0){
-    products = [{
-      "title":"Air Jordan 1 Retro High",
-      "slug":"air-jordan-1",
-      "price":170,
-      "currency":"USD",
-      "description":"Sample product — add real products via the CMS under /admin.",
-      "image":"/images/sample-aj1.jpg",
-      "buy_url":"https://example.com"
-    }];
+    loadingEl.textContent = "No products yet — check back soon!";
+    return;
   }
 
-  // Render
   loadingEl.style.display = 'none';
   products.forEach(p=>{
     const card = renderProductCard(p);
