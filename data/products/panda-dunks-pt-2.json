@@ -1,0 +1,10 @@
+{
+  "currency": "USD",
+  "active": true,
+  "title": "Panda Dunks Pt 2",
+  "slug": "Dunks-low",
+  "price": 110,
+  "description": "This is a test shoe",
+  "image": "/images/jordan-1.webp",
+  "buy_url": "https://buy.stripe.com/test_00w9AVeAJ2yy9ci5BXb3q00"
+}
