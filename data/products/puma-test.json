@@ -1,0 +1,10 @@
+{
+  "currency": "USD",
+  "active": true,
+  "title": "Puma Test ",
+  "slug": "test-pumas-1",
+  "price": 95,
+  "description": "This is a test shoe",
+  "image": "/images/pumas.webp",
+  "buy_url": "https://buy.stripe.com/test_00w9AVeAJ2yy9ci5BXb3q00"
+}
