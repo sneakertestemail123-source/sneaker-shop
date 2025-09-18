@@ -1,11 +1,11 @@
 backend:
   name: git-gateway
-  branch: main         # change if your repo uses another default branch
+  branch: main  # change if your repo uses another default branch
 
-media_folder: "images"    # where uploaded images will be stored in the repo
-public_folder: "/images"  # how those uploaded images are referenced on the site
+# Media settings: save uploaded images to /images and reference them as /images/filename.jpg
+media_folder: "images"       # stored in repo
+public_folder: "/images"     # referenced on website
 
-# Optional: enable editorial workflow by switching publish_mode to editorial_workflow
 publish_mode: simple
 
 collections:
@@ -18,12 +18,12 @@ collections:
         label: "Site Settings"
         name: "site"
         fields:
-          - {label: "Site Title", name: "title", widget: "string", required: false}
-          - {label: "Hero Title", name: "hero_title", widget: "string"}
-          - {label: "Hero Subtitle", name: "hero_subtitle", widget: "text"}
-          - {label: "Hero Image", name: "hero_image", widget: "image", required: false}
+          - { label: "Site Title", name: "title", widget: "string", required: false }
+          - { label: "Hero Title", name: "hero_title", widget: "string" }
+          - { label: "Hero Subtitle", name: "hero_subtitle", widget: "text" }
+          - { label: "Hero Image", name: "hero_image", widget: "image", required: false }
 
-  # 2) Products - folder collection -> one JSON file per product (create from CMS)
+  # 2) Products - JSON files, one per product
   - name: "products"
     label: "Products"
     folder: "data/products"
@@ -32,13 +32,16 @@ collections:
     extension: "json"
     format: "json"
     fields:
-      - {label: "Title", name: "title", widget: "string"}
-      - {label: "Slug", name: "slug", widget: "string", hint: "e.g. air-jordan-1"}
-      - {label: "Price", name: "price", widget: "number"}
-      - {label: "Currency", name: "currency", widget: "string", default: "USD"}
-      - {label: "Description", name: "description", widget: "text"}
-      - {label: "Image", name: "image", widget: "image"}
-      - {label: "Gallery", name: "gallery", widget: "list", field: {label: "Image", name: "image", widget: "image"}}
-      - {label: "Buy URL", name: "buy_url", widget: "string"}
-      - {label: "Active", name: "active", widget: "boolean", default: true}
-      - {label: "Date", name: "date", widget: "datetime", required: false}
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Slug", name: "slug", widget: "string", hint: "e.g. air-jordan-1" }
+      - { label: "Price", name: "price", widget: "number" }
+      - { label: "Currency", name: "currency", widget: "string", default: "USD" }
+      - { label: "Description", name: "description", widget: "text" }
+
+      # ✅ Force images to always save with /images path so they work immediately
+      - { label: "Image", name: "image", widget: "image", media_folder: "images", public_folder: "/images" }
+      - { label: "Gallery", name: "gallery", widget: "list", field: { label: "Image", name: "image", widget: "image", media_folder: "images", public_folder: "/images" } }
+
+      - { label: "Buy URL", name: "buy_url", widget: "string" }
+      - { label: "Active", name: "active", widget: "boolean", default: true }
+      - { label: "Date", name: "date", widget: "datetime", required: false }
